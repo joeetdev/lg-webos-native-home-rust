@@ -1,0 +1,15 @@
+#!/bin/sh
+# Apply existing native Home; release presentation gate on integrity failure.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+ROOT=/var/lib/lg-native
+[ -d "$ROOT" ] || exit 0
+if [ -e "$ROOT/home-disabled" ] || [ -L "$ROOT/home-disabled" ]; then
+    python3 -B -E -s "$ROOT/native_gate_control.py" --disable >"$ROOT/home-boot.log" 2>&1
+    exit 0
+fi
+rc=0
+python3 -B -E -s "$ROOT/nativeapply.py" --boot >"$ROOT/home-boot.log" 2>&1 || rc=$?
+python3 -B -E -s "$ROOT/native_gate_control.py" --recover-if-unready >>"$ROOT/home-boot.log" 2>&1
+exit "$rc"

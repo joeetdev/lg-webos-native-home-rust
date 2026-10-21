@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "verification": "Executed offline against privately held stock inputs and independent final manifest; no TV access",
+  "normalization": "Strict raw CRLF input rejected before output; explicit --normalize-crlf passed. Input files unchanged.",
+  "stockFilesVerified": 8,
+  "outputFilesVerified": 8,
+  "candidateByteMatches": 8,
+  "manifestSourceRoot": "/var/lib/lg-native",
+  "deltaEdits": 75,
+  "removedOriginalLinesIncluded": false,
+  "generatedSourcesPublished": false,
+  "qmlCompilationOrDeviceAcceptanceClaimed": false,
+  "files": [
+    {
+      "output": "native-MainView.qml",
+      "sourceSHA256": "6b7e90041d7783849563a0eb583592d8a93f162fb53ec3ac0f52bfd6cf2faf6a",
+      "targetSHA256": "fa609c821be07d1ab285127e605aa52a3384bd09b6cef773c2ec9262c9be82a2",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    },
+    {
+      "output": "native-MainRibbon.qml",
+      "sourceSHA256": "2c9f0e9ab935346e38d31b2679aae428dd63ce4e4de7b66595f270b421ed8bff",
+      "targetSHA256": "c6fb5183986eb7cef3d59a5e96a34cc77bf4a72520a4f3d2ec97999073fa820e",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    },
+    {
+      "output": "native-TopShelf.qml",
+      "sourceSHA256": "4e48360c8dca86b068fcc38dc57b09380ea6b03319dfc1707bab4a2bbbb264f0",
+      "targetSHA256": "3edff3fd42a98d0a79c44cb45b6f3bd1ca8eab4609eb6e3042a2f7c2f3e4bca4",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    },
+    {
+      "output": "native-ShelfList.js",
+      "sourceSHA256": "cc51056b78818c2261683f2980162c029e2e77e456c22c886d34263f1adb5d08",
+      "targetSHA256": "9ebb48b6c5e1faa9b7ea9b645b4e382a98807879917de93d8bb34dab943642de",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    },
+    {
+      "output": "native-SystemServiceResponseProcessors.js",
+      "sourceSHA256": "9c928e6db0683bb317002369674f6ac1db28c7b7abbfaf399d7b2a76f0c77c89",
+      "targetSHA256": "f78b453b8a595ef95176576f11f97df5d6923b645c3a6fed4cf18f51a9335011",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    },
+    {
+      "output": "native-ConnectionsInterfaces.qml",
+      "sourceSHA256": "85f29cb3e49af4e403437fa56d5a210d6bda217de54f0cbdffbb3021741608a0",
+      "targetSHA256": "e3cf6d0b04f44a9dbd06f928769c005f0dce8707c5135ab27861523b0c3446a6",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    },
+    {
+      "output": "native-HomeDashboard.qml",
+      "sourceSHA256": "1e46ba58d744c18fc890a93364e354b972f26b4398ac2aedd6f8b07c808bd66f",
+      "targetSHA256": "76a1328dadfb7e6328e5a9d6735c9f1b82fafedd7ab5cba131753cea3973a689",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    },
+    {
+      "output": "native-MobileComponent.qml",
+      "sourceSHA256": "cc0abd32b112294777cc7dc714fb2aeed50b7b3eee6a63a1645c54fe452a0228",
+      "targetSHA256": "c5f7f69f7e32b10fcdc9d77e480c6f552589e16d87b096e2a7be988900d13876",
+      "matchesPrivateFinalManifest": true,
+      "matchesPrivateCandidateBytes": true
+    }
+  ]
+}

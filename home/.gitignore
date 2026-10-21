@@ -1,0 +1,7 @@
+# Generated firmware must remain private, even during local experiments.
+*.qml
+*.js
+home-final-manifest.json
+__pycache__/
+*.pyc
+*.pyo

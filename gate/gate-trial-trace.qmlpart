@@ -1,0 +1,37 @@
+    property var bootEvents: []
+    property int publishAttempts: 0
+    property bool published: false
+    property bool earlyCaptured: false
+    property var traceSend: null
+    onReadyChanged: gate.recordBoot("ready", null)
+    property Timer earlyCapture: Timer {
+        interval: 400
+        onTriggered: {
+            if (gate.traceSend) gate.traceSend("com.webos.surfacemanager", "/captureCompositorOutput", JSON.stringify({output:"/tmp/lg-native-boot-held-early.png",format:"PNG"}));
+        }
+    }
+    property Timer tracePublisher: Timer {
+        interval: 1000
+        repeat: true
+        running: !gate.published && gate.publishAttempts < 150
+        onTriggered: { gate.publishAttempts++; gate.publishBoot(); }
+    }
+    function recordBoot(kind, item) {
+        try {
+            var e={kind:kind,t:Date.now(),up:Number(gate.readText("/proc/uptime").split(" ")[0]),ready:gate.ready,count:gate.observer.count};
+            if(item){e.appId=item.appId;e.opacity=item.opacity;e.marker=item.windowProperties.lgNativeHomeReady||null;}
+            if(gate.bootEvents.length<48)gate.bootEvents.push(e);
+            if(kind==="surface" && !e.marker && !gate.earlyCaptured){gate.earlyCaptured=true;gate.earlyCapture.start();}
+        } catch(e) {}
+    }
+    function publishBoot() {
+        try {
+            var surfaces=[];
+            for(var i=0;i<gate.held.length;i++){
+                try{var item=gate.held[i].item;surfaces.push({appId:item.appId,marker:item.windowProperties.lgNativeHomeReady||null,opacity:item.opacity,visible:item.visible});}catch(e){}
+            }
+            var data={t:Date.now(),ready:gate.ready,up:Number(gate.readText("/proc/uptime").split(" ")[0]),events:gate.bootEvents,surfaces:surfaces};
+            var request=new XMLHttpRequest();request.onreadystatechange=function(){if(request.readyState===XMLHttpRequest.DONE&&request.status===200)gate.published=true;};
+            request.open("POST","http://127.0.0.1:18766/boot");request.setRequestHeader("Content-Type","application/json");request.send(JSON.stringify(data));
+        }catch(e){}
+    }

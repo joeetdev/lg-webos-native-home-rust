@@ -1,0 +1,50 @@
+[
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-0.qml",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/MainView.qml",
+    "originalHash": "6895529cf59c2cbdc88e994dcbdfe71c976700bc6ec4c826f425a781f0c4c407",
+    "newHash": "d4938343a527743d826d660419c7f7230423047d365c7f28c749f770f12daeac"
+  },
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-1.qml",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Main/MainRibbon.qml",
+    "originalHash": "eeae2a837cfc71d933124715f357e74a40000fd792417a62e805cf05b263c465",
+    "newHash": "8fe57dfaa0e42929e7b4b87d0f431e95dba698c67daf1ab1ad717c285d797a6c"
+  },
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-2.qml",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Main/TopShelf.qml",
+    "originalHash": "689c98088a1314c882fa09622e1046b0a646984a9d8d15540a4afb0c0b9ae21f",
+    "newHash": "f4eab10f42e93dfb65027df92855161232e363256bd9dd2d54382405e427473e"
+  },
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-3.js",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/Model/ShelfList.js",
+    "originalHash": "27bfab6a546158572c022a47466ff833ea247a70fd1bd1a3029a1a1891430b6a",
+    "newHash": "f5566c6b3b8280ca5e520b505b08241df39b2f58941d63514b0938da8cb45b1d"
+  },
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-4.js",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/Configurations/SystemServiceResponseProcessors.js",
+    "originalHash": "80f5c4e4995b7234ad504a3d867858a960696c1e97fff28cd4537ba831ba1bdc",
+    "newHash": "455632a65a35c85ee2177f53da62613144d2c7b09fd94f78f435f9b5ed3b70d1"
+  },
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-5.qml",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/Interfaces/ConnectionsInterfaces/ConnectionsInterfaces.qml",
+    "originalHash": "5fe383e9839973b0288bd1d65332c3fa85e101cdd570d4c37e1a1701888775ff",
+    "newHash": "ec1e394b372f5ef89a34e2aeb57a61032f6a01d7c94d2678cad239ce2713f6a9"
+  },
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-6.qml",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Main/HomeDashboard.qml",
+    "originalHash": "e588a38274ce2fb2fd722b56821fb012d507528c41987df6d620a7fb5f2b1671",
+    "newHash": "f4daf2d13e0a953ed0a220bc968262c478b9842cda4c54e78540560f3bbf3c2d"
+  },
+  {
+    "source": "/var/lib/lg-native/synthetic/synthetic-7.qml",
+    "target": "/usr/palm/applications/com.webos.app.home/qml/UserInterfaceLayer/Containers/Sub/MobileComponent.qml",
+    "originalHash": "6006d2547dda6b9a1255c098c1f8cfc02a8a8966808b71f84d74da696905e167",
+    "newHash": "10abbf96893f7b8f7ff5edc6181f4b45730b86342f20277a7a270082f11bab60"
+  }
+]
