@@ -1,34 +1,62 @@
-# Verificación y límites
+# Verification and limits
 
-## Dispositivo de referencia
+## Reference device
 
-LG50UQ8050PSB, webOS7.6.0/webOS22, firmware04.60.90, aarch64 y Homebrew Channel0.7.3. La instalación se probó durante octubre de2026. Los datos de red, cuentas, claves, journals vivos y dumps se mantienen fuera del repositorio.
+LG 50UQ8050PSB, webOS 7.6.0 / webOS 22, firmware 04.60.90, aarch64 and Homebrew Channel 0.7.3. The installation was tested during October 2026. Network data, accounts, keys, live journals and dumps are kept out of the repository.
 
-## Observado en la TV
+## Observed on the TV (earlier Python implementation)
 
-- Ocho overrides readonly y hashes/ownership válidos del mismo Home, sin otra app/launcher.
-- Compacto once apps+Todas12, ampliado14LaunchPoints permitidos, editor/Back/ThinQ y herramientas finales.
-- Reloj libre gris azulado, segundos arriba, mitad de tamaño principal anterior. Comparación de límites tipográficos estable mientras cambiaban segundos.
-- Gate final probado en tres reinicios por software sin abrir Homebrew, incluidos dos lanzamientos anticipados forzados de Home viejo. Ventana sin marca retenida; sólo la personalizada verificada liberada. Prueba histórica del gate, no un coldboot eléctrico de la última revisión del mando.
-- Captura física confirmó GoogleVoice18874398 y USP18874413 con press/release y deviceId3. El usuario comprobó toggle, controles básicos, MOVIES→Crunchyroll y mantenimiento del bloqueo al abrir la app.
-- La primera prueba con restauración automática de ocho segundos era temporal y fue sustituida por toggle sin caducidad.
-- La primera política de powerState indicaba bloqueado, pero el cursor reaparecía físicamente al encender. Tras añadir observación de visibilidad nativa, el usuario repitió apagado/encendido con mando, dejando antes ON: volvió OFF y el toggle funcionó.
-- Instalación permanente del mando, desactivación, reaplicación e idempotencia verificadas. Modelo, handler y QObject final cargados; `desiredEnabled=false`, expiry0 y Timer de restitución inactivo. Core/QML idénticos a la prueba física; loader final sin trazas.
-- Cadena final de referencia:17handlers LG+gateHome+remapeo. Versiones de134apps, precargas persistentes, hook de Home y rollback conservados durante la fase del mando. Diagnósticos/temporales retirados después de guardar evidencia privada.
+Everything in this section was observed with the earlier Python implementation of the device helpers. The QML/JS assets that run inside the compositor are unchanged and byte-identical in the Rust packaging.
 
-## Pruebas offline públicas
+- Eight read-only overrides with valid hashes/ownership for the same Home, without another app or launcher.
+- Compact eleven apps + All apps at 12, expanded with 14 permitted LaunchPoints, editor/Back/ThinQ and tools at the end.
+- Free-standing blue-grey clock, seconds raised, half the previous main size. Typographic bounds stayed stable while the seconds changed.
+- Final gate tested across three software reboots without opening Homebrew, including two forced early launches of an old Home. The window without the marker was held back; only the verified customised one was released. This is a historical gate test, not an electrical cold boot of the latest remote revision.
+- A physical capture confirmed GoogleVoice 18874398 and USP 18874413 with press/release and deviceId 3. The user checked the toggle, basic controls, MOVIES→Crunchyroll, and that the block was kept when opening the app.
+- The first test with an eight-second automatic restore was temporary and was replaced by a toggle without expiry.
+- The first powerState policy reported "blocked", but the cursor physically reappeared on power-on. After adding observation of native visibility, the user repeated power off/on with the remote, leaving ON beforehand: it came back OFF and the toggle worked.
+- Permanent installation of the remote mapping, disabling, reapplication and idempotence verified. Model, handler and final QObject loaded; `desiredEnabled=false`, expiry 0 and the restore Timer inactive. Core/QML identical to the physical test; final loader without traces.
+- Final reference chain: 17 LG handlers + Home gate + remapping. Versions of 134 apps, persistent preloads, the Home hook and rollback were kept during the remote phase. Diagnostics/temporary files were removed after saving private evidence.
 
-`python tools/test.py` ejecuta las suites incluidas sin acceder a una TV. Los fixtures de gate/runtime son sintéticos; no son registros de una TV ni una afirmación de aceptación física. La reconstrucción exacta de los ocho fuentes se verificó localmente contra originales privados; el repositorio sólo guarda hashes y resumen saneado, no el firmware.
+## Rust port: verified offline only
 
-Los tests históricos que dependían de rutas personales fueron adaptados a fixtures locales portables; no se cambió el controlador instalado para ocultar datos. CI y pruebas locales no son lo mismo: este repositorio incluye el ejecutor local, sin afirmar una ejecución de GitHub Actions inexistente.
+The Rust implementation has **not been executed on the TV**. What was verified on the development host:
 
-## No demostrado por esta revisión
+- All behaviour previously covered by the Python unit tests is covered by Rust tests (122 tests: unit, integration and command-line), plus root-only tests against real files for symlinks, hard links, permission bits, duplicate JSON keys and oversize input.
+- Transaction parity: the original Python controller and the Rust controller were run against the same fake device boundary; the journals and the full sequences of side effects were identical for apply, rollback, an injected failure at bind with full recovery, and migration of a legacy journal.
+- The backing-copy names (`sha256` of the compact JSON identity) are identical to the Python ones, so existing copies are reused.
+- The gate and remote packers produce byte-identical assets and `package.json` files to the Python packers, for both trial and final modes.
+- The Home delta engine matched the Python engine on 3,000 randomised differential cases, including identical error messages.
+- The boot identity string, journal, boot marker, gate state and remote state formats are unchanged, so the Rust binary reads state written by the Python version.
+- Builds and tests pass with Rust 1.74 and 1.97; static release builds for `aarch64-unknown-linux-musl` (~0.6 MB) and `armv7-unknown-linux-musleabihf`.
+- Peak resident memory per process, measured on an x86_64 host with a ptrace probe that reads each process's own `VmHWM` at exit: 0.5–0.7 MiB for `lg-native` against 10–16 MiB for the equivalent Python commands (Python 3.13). TV measurements may differ.
 
-- Compatibilidad con otro firmware/modelo/mando.
-- Ausencia de todo frame stock bajo cualquier avería; el recovery puede retirar el gate.
-- Retirada de corriente/coldboot eléctrico o nuevo reboot completo de la última versión del mando. Apagado/encendido físico observado es standby/resume.
-- Ratón USB o touchpad de teléfono con la política global de puntero.
-- Nueva reproducción AirPlay/HDMI/DRM, calidad de señal o encendido desde iPhone en esta última fase. Apertura de interfaces no equivale a reproducción.
-- Ahorro causal de RAM/CPU. Se prioriza bajo coste y no se añaden servicios residentes, pero las mediciones anteriores no se extrapolan a cargas futuras.
+Deliberate behavioural differences from the Python helpers, all in the fail-closed direction:
 
-No se publican los backups privados como evidencia descargable; contienen estado específico y materiales que no corresponden a una distribución pública.
+- JSON with duplicate keys is rejected everywhere (previously only in some readers); non-finite numbers are rejected.
+- Backing copies are written to a temporary file and renamed into place only after their hash matches.
+- The read-only remount preserves the existing per-mount flags explicitly instead of depending on the behaviour of the TV's `mount` binary.
+- The checkpoint helper runs in-process (no separate script to hash-pin), after the same trusted checks on `checkpoint-backup.json`.
+- SIGTERM and SIGINT (Ctrl-C) both unwind the transaction through its recovery. Once recovery or the restore of the original preload policy has started, further signals are deferred until it completes, so a signal can never skip either.
+- Commands that change Home, install the gate or manage the remote only run as the installed, root-owned binary at `/var/lib/lg-native/lg-native`. The gate-release paths (`gate disable`, `gate recover-if-unready`, the trial watcher and the release before `home rollback`) need only root, so this check can never keep Home hidden; a binary that fails it cannot prove readiness, which releases the gate.
+- The trial guard must still be running 300 ms after it starts, or the installation stops before the gate is inserted; descriptors inherited by the watcher are closed at exec.
+- The gate installer recognises the trial hook written by either implementation as owned, so an uncommitted Python trial can be committed or replaced.
+
+## Offline public tests
+
+`cargo xtask test` runs the included suites without accessing a TV. The gate/runtime fixtures are synthetic; they are not TV logs and do not claim physical acceptance. The exact reconstruction of the eight sources was verified locally against private originals (with the original labels); the repository keeps only hashes and a sanitised summary, not the firmware.
+
+CI and local tests are not the same: this repository includes the local runner and does not claim a GitHub Actions run that does not exist.
+
+## Not demonstrated by this revision
+
+- Any execution of the Rust `lg-native` binary on the TV (apply, rollback, gate, guard, remote, checkpoint).
+- The English on-screen labels on the TV. They change only display strings, but the labelled files have not been loaded by the TV's QML engine.
+- Compatibility with other firmware/models/remotes.
+- Absence of every stock frame under every fault; recovery may remove the gate.
+- Removal of power / electrical cold boot, or a new full reboot with the latest remote version. The physical power off/on observed is standby/resume.
+- USB mouse or phone touchpad with the global pointer policy.
+- New AirPlay/HDMI/DRM playback, signal quality or power-on from iPhone in this last phase. Opening interfaces is not playback.
+- Causal RAM/CPU savings on the TV itself. The measurements above were taken on a development host; earlier measurements are not extrapolated to future loads.
+
+Private backups are not published as downloadable evidence; they contain device-specific state and material that does not belong in a public distribution.

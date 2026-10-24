@@ -1,0 +1,12 @@
+[package]
+name = "xtask"
+description = "Offline test orchestration (cargo xtask test); never contacts a TV"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

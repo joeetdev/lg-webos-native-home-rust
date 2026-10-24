@@ -1,83 +1,110 @@
-# Despliegue manual y recuperación
+# Manual deployment and recovery
 
-Este documento describe el orden y los contratos, no un instalador universal ni una orden para ejecutar todos los pasos. Los scripts de root pueden dejar Home invisible o provocar su relanzamiento. Mantén acceso SSH independiente, originales y backups externos ANTES de cambiar la TV. No se modifica ningún dispositivo al clonar o probar este repositorio.
+This document describes the order and the contracts, not a universal installer and not an instruction to run every step. The root commands can leave Home invisible or cause it to be relaunched. Keep independent SSH access, the originals and external backups BEFORE changing the TV. Nothing on any device is modified by cloning or testing this repository.
 
-## 1. Prerrequisitos
+All device commands below are the single binary `/var/lib/lg-native/lg-native`. Commands that change Home, install the gate or manage the remote refuse to run unless it is executed as root on Linux from exactly that path, as a root-owned, single-link file that group/other cannot write, inside root-owned directories. The gate-release commands (`gate disable`, `gate recover-if-unready`) need only root, so a damaged or moved binary can never keep Home hidden behind the gate.
 
-- Dispositivo/firmware exactos indicados en README y hashes de los ocho originales conocidos.
-- Root previamente configurado, Homebrew Channel compatible, Python3.8+ en la TV y `luna-send` disponible.
-- Inventario privado de apps, versiones, keyFilters, hooks, precargas y montajes. No subirlo a Git.
-- Backup externo real de los checkpoints derivados de Home, desreferenciando sus páginas enlazadas, antes de usar el helper de limpieza. Un JSON vacío no es un backup.
-- Directorio `/var/lib/lg-native` root-owned, privado0700; archivos regulares root-owned sin escritura de grupo/otros; assets/estados privados0600. Revisar también ancestros y symlinks.
-- Imagen de fondo propia/con permiso y las rutas exactas del payload reconstruido. No sustituir silenciosamente imágenes, hashes o rutas en un paquete validado.
-- Un guard de recuperación independiente ANTES de cada prueba con efectos; no depender de `genericTimer` ni de un canal SSH que podría desaparecer.
+## 1. Prerequisites
 
-## 2. Reconstrucción offline
+- The exact device/firmware stated in the README and the known hashes of the eight originals.
+- Root already configured, a compatible Homebrew Channel and `luna-send` available. Python is no longer required on the TV.
+- A private inventory of apps, versions, keyFilters, hooks, preloads and mounts. Do not commit it.
+- A real external backup of the Home-derived checkpoints, dereferencing linked pages, BEFORE using the checkpoint helper. An empty JSON file is not a backup.
+- Directory `/var/lib/lg-native` root-owned and private (0700); regular root-owned files without group/other write; private assets/state 0600. Check ancestors and symlinks too.
+- Your own background image (or one you have permission to use) at the exact paths of the rebuilt payload. Do not silently substitute images, hashes or paths in a validated package.
+- An independent recovery guard BEFORE every test with side effects; do not rely on `genericTimer` or on an SSH channel that might disappear.
 
-Obtener originales NO cubiertos por overrides y ejecutar el constructor de `home/README.md`. Verifica que los ocho productos coinciden con los hashes finales de `home/`. No aplicar parches por similitud ni actualizar la allowlist sólo para forzar un firmware distinto.
-
-El manifiesto generado describe rutas de staging en `/var/lib/lg-native` y los targets nativos. Debes copiar a la TV exactamente los archivos que refiere, verificar SHA y permisos y conservar los originales fuera de la TV. Si cambias rutas, genera y valida un manifiesto coherente: no copies uno de un backup ajeno.
-
-## 3. Runtime de Home
-
-`native_home.py` limita los targets, valida propiedad/metadata, registra intención antes del montaje y usa backing copies inmutables. `nativeapply.py` aplica el manifiesto; `rollback.py` restituye sólo montajes demostrablemente propios.
-
-El staging necesita los módulos del runtime, el manifiesto `home-final-manifest.json` generado, fuentes exactas y un `checkpoint-backup.json` privado que documente el respaldo real. Los helpers no crean ese respaldo por ti. La limpieza sólo considera los dos roots derivados de Home, no inputcommon ni CRIU global.
-
-No ejecutar el hook55 hasta preparar la recuperación del gate: la variante publicada `runtime/55-lg-native` y `runtime/rollback.py` incluyen recuperación con `native_gate_control.py`. Nunca instales un wrapper que importa un módulo ausente.
-
-Antes de persistir: aplicar con guard, comprobar ocho mounts readonly/hashes, abrir Home mediante mando, probar TV/entradas/apps y restauración real. Commit de cada trial antes del siguiente. No tocar startup.sh/jumpstart.sh.
-
-## 4. Gate de presentación temprana
-
-Empaquetado en el host:
+## 2. Build on the host
 
 ```sh
-cd gate
-python pack-gate.py final
+cargo xtask test                                    # offline suites
+rustup target add aarch64-unknown-linux-musl
+cargo build --release -p lg-native --target aarch64-unknown-linux-musl
 ```
 
-Genera tres assets inmutables y `packed-final/package.json`. El proof Python de hashes/montajes sigue siendo la autoridad. El proof JS compara los ocho sources/targets/backings, journal y manifiesto; cada ventana exige además `lgNativeHomeReady=lg-native-home-v1` publicado por el MainView personalizado.
+Confirm the TV's userland architecture first; for 32-bit ARM use `armv7-unknown-linux-musleabihf`. Stage the binary as `/var/lib/lg-native/lg-native`, owner `root:root`, mode `0755`, and verify its SHA-256 on the TV against the host build.
 
-Staging manual: assets y paquete final con nombre remoto `gate-package-final.json`, `native_gate_control.py`, `gate_install.py` y `gate_trial_guard.py`. Revisa antes los wrappers `SAFE_HOOK`, `SAFE_ROLLBACK` y `TRIAL_HOOK`: instalar el gate cambia únicamente los wrappers propios55/rollback y añade una recuperación temporal54. No sobrescribir hooks ajenos.
+## 3. Offline reconstruction
 
-`gate_install.py --install /var/lib/lg-native/gate-package-final.json` valida e instala con guard; `--check` informa readiness y cadena; `--commit` sólo después de verificación final retira token/hook temporal. El helper `native_gate_control.py --disable` retira sólo referencias exactas del gate; `--recover-if-unready` prioriza Home usable ante fallo de integridad.
+Obtain the originals NOT covered by overrides and run the builder from [home/README.md](../home/README.md). Check that the eight products match: with `--labels original` they match the final hashes in `home/`; with the default English labels the builder first verifies those pinned hashes and then writes the manifest with the hashes of the labelled files. Do not patch by similarity or update the allowlist just to force a different firmware.
 
-El gate no está permitido sin payload/marker funcional y recuperación. Verifica arranque real sin abrir Homebrew; configuración persistente por sí sola no prueba primer frame. No borres los originales del firmware.
+The generated manifest describes staging paths in `/var/lib/lg-native` and the native targets. Copy to the TV exactly the files it references, verify SHA-256 and permissions, and keep the originals off the TV. If you change paths, generate and validate a coherent manifest: never copy one from someone else's backup.
 
-## 5. Mando, independiente del Home
+## 4. Home runtime
 
-En el host, desde `remote/`, `python pack-remote.py` genera paquetes trial/final. El final no contiene telemetría y no tiene caducidad de puntero. El paquete trial actual tiene trazas de observación, NO un servidor instalado ni un temporizador de ocho segundos. No lo instales sin construir una observación privada acotada; usa el final después de probar el hardware.
+`lg-native home apply` limits the targets, validates ownership/metadata, records intent before each mount and uses immutable backing copies. `lg-native home rollback` first releases the presentation gate, then restores only mounts that are provably owned.
 
-Staging: `remote_controls.py`, los tres assets del paquete final y `remote-final-package.json`. Confirma ID de Crunchyroll y códigos/dispositivo del mando antes de usar este perfil. Instalar con una recuperación externa ya armada:
+Staging needs the binary, the generated `home-final-manifest.json`, the exact sources and a private `checkpoint-backup.json` documenting the real backup. The tools do not create that backup for you. Checkpoint clearing only considers the two Home-derived roots, never `inputcommon` or global CRIU state; `lg-native checkpoint --dry-run` shows the plan without changing anything.
+
+Do not install the boot hook until the gate recovery is prepared: the published `runtime/55-lg-native` runs `home apply --boot` and then `gate recover-if-unready`. Never install a hook that calls a binary or module that is absent.
+
+Before persisting: apply with a guard, check the eight read-only mounts and hashes, open Home with the remote, test TV/inputs/apps and a real restore. Commit each trial before the next one. Do not touch `startup.sh`/`jumpstart.sh`.
+
+## 5. Early presentation gate
+
+Packaging on the host:
 
 ```sh
-python3 -B -E -s /var/lib/lg-native/remote_controls.py --install /var/lib/lg-native/remote-final-package.json
-python3 -B -E -s /var/lib/lg-native/remote_controls.py --check
+cargo run --release -p lg-native-host -- pack-gate final
 ```
 
-El estado `remote-controls-state.json` se crea localmente y queda privado. La entrada se añade antes de `handleCPHotkeys`; preservar todos los filtros previos, incluido el gate. El total19 sólo describe la instalación de referencia, no una lista que deba forzarse.
+This produces three immutable assets and `gate/packed-final/package.json`. The Home runtime's hash/mount proof remains the authority. The JS proof compares the eight sources/targets/backings, the journal and the manifest; each window additionally needs `lgNativeHomeReady=lg-native-home-v1`, published by the customised MainView.
 
-Pruebas físicas: OFF inicial; ON/OFF con Google; flechas/OK/Atrás/volumen; MOVIES→Crunchyroll; esperar más de15s sin reactivación; dejar ON, apagar/encender con mando y verificar OFF; activar de nuevo. Probar teléfono/USB aparte si son necesarios. Leer de vuelta estado/paquete/configuración y revisar ausencia de diagnósticos antes de retirar el guard externo.
-
-## Recuperación independiente
-
-Sólo mando:
+Manual staging: the three assets and the final package under the remote name `gate-package-final.json`, plus the binary. Review the hooks embedded in the installer first (`runtime/55-lg-native` and the trial hook in `crates/lg-native/src/gate/install.rs`): installing the gate changes only the owned hooks `55-lg-native` and adds the temporary recovery hook `54-lg-native-gate-trial`. Foreign hooks are never overwritten.
 
 ```sh
-python3 -B -E -s /var/lib/lg-native/remote_controls.py --disable
+/var/lib/lg-native/lg-native gate install /var/lib/lg-native/gate-package-final.json
+/var/lib/lg-native/lg-native gate check
+/var/lib/lg-native/lg-native gate commit    # only after the final verification
 ```
 
-Sólo gate:
+`gate install` validates and installs behind a 240-second trial guard that removes the gate again unless `gate commit` runs first; `gate check` reports readiness and the chain; `gate commit` removes the trial token and the temporary hook. `gate disable` removes only the exact gate entries; `gate recover-if-unready` gives priority to a usable Home when integrity fails.
+
+The gate is not allowed without a working payload/marker and recovery. Verify a real boot without opening Homebrew; persistent configuration on its own does not prove the first frame. Do not delete the firmware originals.
+
+## 6. Remote control, independent of Home
+
+On the host, `cargo run --release -p lg-native-host -- pack-remote` generates the trial and final packages. The final package contains no telemetry and no pointer expiry. The current trial package contains observation traces, NOT an installed server and NOT an eight-second timer. Do not install it without building a bounded private observation; use the final package after testing the hardware.
+
+Staging: the binary, the three assets of the final package and `remote-final-package.json`. Confirm the Crunchyroll ID and the remote's codes/device before using this profile. Install with an external recovery already armed:
 
 ```sh
-python3 -B -E -s /var/lib/lg-native/native_gate_control.py --disable
+/var/lib/lg-native/lg-native remote install /var/lib/lg-native/remote-final-package.json
+/var/lib/lg-native/lg-native remote check
 ```
 
-Home stock, conservando lo ajeno y desactivando antes su gate mediante el wrapper seguro:
+The state file `remote-controls-state.json` is created locally and stays private. The entry is added before `handleCPHotkeys`, preserving every previous filter including the gate. The total of 19 describes only the reference installation, not a list to be forced.
+
+Physical tests: OFF at start; ON/OFF with Google; arrows/OK/Back/volume; MOVIES→Crunchyroll; wait more than 15 s without reactivation; leave ON, power off/on with the remote and check OFF; enable again. Test phone/USB separately if needed. Read back state/package/configuration and check that no diagnostics remain before removing the external guard.
+
+## 7. Migrating an installation made with the Python implementation
+
+The Rust binary reads the existing state unchanged (`home-mounts.json`, `home-boot.json`, `native-home-gate-state.json`, `remote-controls-state.json`), uses the same boot identity format and produces byte-identical gate/remote assets, so no reinstallation of the overrides, gate or remote entries is needed. The migration only replaces the helpers.
+
+1. With an external recovery armed, stage `/var/lib/lg-native/lg-native` as described in section 2.
+2. Run the read-only checks: `lg-native gate check` (proves the live Python-created mounts and journal with the Rust readiness proof) and `lg-native remote check`. Do not continue unless both succeed.
+3. Replace the boot hook `/var/lib/webosbrew/init.d/55-lg-native` with `runtime/55-lg-native` (root-owned, mode 0755). This is the smallest change: it does not touch keyFilters. Alternatively, `lg-native gate install` with the same final package also rewrites the hook and re-arms the trial guard, but it writes the keyFilters chain again (unchanged content), which reloads the loaders.
+4. If an uncommitted Python trial hook `54-lg-native-gate-trial` exists, `lg-native gate commit` recognises and removes it.
+5. Reboot and verify as in sections 4–6. Only after a verified boot remove the old Python helpers from `/var/lib/lg-native` (`native_home.py`, `nativeapply.py`, `rollback.py`, `clear-home-checkpoint.py`, `native_gate_control.py`, `gate_install.py`, `gate_trial_guard.py`, `remote_controls.py`). Until then they remain a working fallback.
+
+## Independent recovery
+
+Remote only:
 
 ```sh
-python3 -B -E -s /var/lib/lg-native/rollback.py
+/var/lib/lg-native/lg-native remote disable
 ```
 
-No borrar los estados para saltar ownership. No restaurar ciegamente una cadena vieja de filtros, ni copiar journals o backups de otro dispositivo. Conservar evidencia fuera de la TV; retirar sólo temporales enumerados y verificados por hash. Un comando exitoso no sustituye revisar el resultado.
+Gate only:
+
+```sh
+/var/lib/lg-native/lg-native gate disable
+```
+
+Stock Home, keeping everything foreign and releasing its gate first:
+
+```sh
+/var/lib/lg-native/lg-native home rollback
+```
+
+Do not delete state files to bypass ownership. Do not blindly restore an old filter chain, and do not copy journals or backups from another device. Keep evidence off the TV; remove only enumerated temporary files verified by hash. A successful command does not replace checking the result.

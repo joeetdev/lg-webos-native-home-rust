@@ -1,0 +1,20 @@
+[package]
+name = "lg-native-host"
+description = "Offline host tools: Home delta builder, content-addressed asset packers and publication check"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "lg-native-host"
+path = "src/main.rs"
+
+[dependencies]
+lg-native = { path = "../lg-native" }
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+# Static, self-contained musl builds for the TV. `rust-lld` ships with rustup,
+# so no cross C toolchain is required:
+#   rustup target add aarch64-unknown-linux-musl
+#   cargo build --release -p lg-native --target aarch64-unknown-linux-musl
+[target.aarch64-unknown-linux-musl]
+linker = "rust-lld"
+
+[target.armv7-unknown-linux-musleabihf]
+linker = "rust-lld"
+
+[alias]
+xtask = "run --quiet --package xtask --"
