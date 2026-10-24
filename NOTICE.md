@@ -1,17 +1,17 @@
-# Procedencia y redistribución
+# Provenance and redistribution
 
-El proyecto reúne modificaciones de presentación y control desarrolladas para una instalación particular de webOS. No está afiliado ni respaldado por LG, Homebrew Channel ni los proveedores de las aplicaciones mencionadas.
+This project brings together presentation and control modifications developed for one particular webOS installation. It is not affiliated with or endorsed by LG, Homebrew Channel or the providers of the applications mentioned.
 
-No se distribuyen imágenes de firmware, ejecutables ni copias completas de los archivos de LG. Los deltas de Home requieren originales del dispositivo y hashes exactos; las partes no modificadas no se incluyen como archivos fuente completos. Los fixtures de pruebas son sintéticos y no son dumps del televisor.
+No firmware images, executables or complete copies of LG files are distributed. The Home deltas require originals from the device and exact hashes; unmodified parts are not included as complete source files. The test fixtures are synthetic and are not dumps of the TV.
 
-Los nombres, logotipos y aplicaciones de terceros pertenecen a sus respectivos titulares. La captura de Home documenta el resultado; la imagen de fondo no se publica como asset reutilizable.
+Third-party names, logos and applications belong to their respective owners. The Home screenshot documents the result; the background image is not published as a reusable asset.
 
-No se ha seleccionado todavía una licencia general de reutilización para el código de este repositorio. No atribuyas una licencia MIT, GPL u otra a archivos o dependencias sin verificar su procedencia y la elección del titular.
+No general reuse licence has been selected yet for the code in this repository. Do not attribute an MIT, GPL or any other licence to files or dependencies without verifying their provenance and the owner's choice. The Rust dependencies fetched by Cargo (`sha2`, `libc`, `regex` and their transitive crates) keep their own upstream licences.
 
-Referencias técnicas, no dependencias instaladas automáticamente:
+Technical references, not automatically installed dependencies:
 
 - Homebrew Channel / webOS Homebrew: https://github.com/webosbrew/webos-homebrew-channel
-- Documentación webOS TV: https://webostv.developer.lge.com/
+- webOS TV documentation: https://webostv.developer.lge.com/
 - Qt QML: https://doc.qt.io/qt-5/qtqml-index.html
 
-La instalación de referencia conservó los originales del firmware, su mecanismo root y la recuperación. Nunca copies una imagen o un respaldo completo de otro televisor para reproducir este proyecto.
+The reference installation kept the firmware originals, its root mechanism and recovery. Never copy an image or a complete backup from another TV to reproduce this project.

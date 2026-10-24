@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = ["crates/lg-native", "crates/lg-native-host", "xtask"]
+
+[workspace.package]
+version = "2.0.0"
+edition = "2021"
+rust-version = "1.74"
+publish = false
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+
+# The device binary runs on a TV with very little free RAM: optimise for size,
+# link everything statically and abort instead of unwinding (no unwind tables).
+# Transaction recovery never relies on unwinding; every failure is a `Result`.
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false
+incremental = false

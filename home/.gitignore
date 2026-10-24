@@ -2,6 +2,3 @@
 *.qml
 *.js
 home-final-manifest.json
-__pycache__/
-*.pyc
-*.pyo

@@ -1,33 +1,67 @@
-# Arquitectura
+# Architecture
 
 ```text
-Firmware original de la propia TV (no se distribuye)
-  -> deltas Home con hashes exactos
-  -> ocho fuentes generadas en staging privado
-  -> runtime root: ownership + backing copies + bind mounts readonly
-  -> MISMO com.webos.app.home / LaunchPoints y acciones LG
+The TV's own original firmware (not distributed)
+  -> Home deltas with exact hashes (lg-native-host build-home)
+  -> eight generated sources in private staging
+  -> lg-native home apply: ownership + backing copies + read-only bind mounts
+  -> the SAME com.webos.app.home / LaunchPoints and LG actions
 
-Compositor existente
-  -> cadena LG de keyFilters, conservada en orden
-     -> gate no visual antes de handleSystemKeys
-        -> proof ocho overrides + marca por ventana -> libera opacidad guardada
-     -> remapeo antes de handleCPHotkeys
-        -> Google: política nativa blockPointer / cancelBlockPointer
+Existing compositor
+  -> LG keyFilters chain, kept in order
+     -> non-visual gate before handleSystemKeys
+        -> proof of eight overrides + per-window marker -> restores saved opacity
+     -> remapping before handleCPHotkeys
+        -> Google: native blockPointer / cancelBlockPointer policy
         -> MOVIES: applicationManager.checkLaunch Crunchyroll
 ```
 
-## Límites de autoridad
+## One static binary, no resident process
 
-El runtime Python comprueba SHA, metadata, inodes y ownership real de los mounts; el proof JS no sustituye esas validaciones. El gate afecta sólo a ventanas Home. Un Home antiguo sin marker permanece retenido aunque los archivos actuales sean correctos.
+Everything that runs on the TV outside the compositor is the single static binary `/var/lib/lg-native/lg-native`, invoked once per command:
 
-Los estados de runtime, gate y mando pertenecen al dispositivo y NO forman parte del repo. Cada subsistema retira sólo sus entradas/montajes exactos, preservando lo ajeno. Sus helpers son one-shot; no añaden procesos residentes.
+| Command | Replaces | Runs |
+| --- | --- | --- |
+| `home apply --boot` | `nativeapply.py --boot` | from the boot hook, once per boot |
+| `home rollback` | `rollback.py` | manually; releases the gate first |
+| `gate recover-if-unready` | `native_gate_control.py --recover-if-unready` | from the boot hook after apply |
+| `gate disable` | `native_gate_control.py --disable` | manually or from the hook when Home is disabled |
+| `gate install`, `gate check`, `gate commit` | `gate_install.py` | manually |
+| `gate guard --spawn` / `--watch` | `gate_trial_guard.py` | trial hook; the watcher lives at most 240 s |
+| `remote install`, `remote check`, `remote disable` | `remote_controls.py` | manually |
+| `checkpoint --dry-run` / `--apply` | `clear-home-checkpoint.py` | manually; `home apply` runs the same logic in-process |
 
-## Ciclo del puntero
+Each command exits as soon as it is done. There is no daemon, no thread pool and no async runtime. The binary refuses to act unless it runs as root on Linux AND is the root-owned, single-link file at the fixed private path, so hooks and the trial guard always execute exactly the trusted file.
 
-`desiredEnabled=false` inicial y tras standby real. Mientras active, Google alterna la política; un salvapantallas preserva la elección manual. El sistema puede restituir soporte nativo tarde al volver de standby: observar `cursorVisibleChanged` corrige únicamente el caso visible+desiredOFF+active, sin polling continuo y sin combatir ON manual ni el logo de apagado.
+## Authority boundaries
 
-El controlador no visual tiene un cleanup asociado al loader, que habilita y destruye su instancia al retirarlo. No se inyecta código en lginput ni se usan endpoints de cursor ficticios. El alcance global de la API exige probar dispositivos de puntero distintos por separado.
+The Home runtime checks SHA-256, metadata, inodes and real mount ownership; the JS proof inside the compositor does not replace those checks. The gate affects only Home windows. An old Home without the marker stays held back even when the current files are correct.
 
-## Activos y caché
+The gate's readiness proof is written against a read-only trait (`HomeReader`) that has no mutating operation at all, so a health check cannot change Home, mounts, preload policy or files by construction.
 
-JS, QML y loader se nombran por SHA256, encadenando las referencias antes de calcular el hash siguiente. Reescribir un archivo con la misma URL puede reutilizar una compilación anterior del motor Qt. No reiniciar el compositor compartido sólo para borrar esa caché.
+Runtime, gate and remote state belong to the device and are NOT part of the repository. Each subsystem removes only its own exact entries/mounts, preserving everything foreign. Its helpers are one-shot; no resident processes are added.
+
+## Transactions
+
+`home apply` journals every intent durably BEFORE the side effect it describes (copy, bind, read-only remount, unmount, checkpoint clearing, kill, launch, preload change). All payload and stock hashes are verified before the first mount. Any failure — including SIGTERM, which unwinds at the next checkpoint and kills a pending `luna-send` — disables the overrides, removes owned mounts and relaunches stock Home in the background, and the original preload policy of the current boot is always restored. Backing copies are content addressed and written under a temporary name, then linked into place only when their hash matches, so a failed copy never leaves a corrupt file at the content-addressed path.
+
+The read-only remount keeps the existing per-mount flags (`nosuid`, `nodev`, `noexec`, access-time policy) and adds only `ro`; mount ownership is then re-proved from `/proc/self/mountinfo`, inode identity and hashes.
+
+## Pointer lifecycle
+
+`desiredEnabled=false` initially and after real standby. While active, Google toggles the policy; a screensaver preserves the manual choice. The system can restore native support late when returning from standby: observing `cursorVisibleChanged` corrects only the visible + desired-OFF + active case, without continuous polling and without fighting a manual ON or the power-off logo.
+
+The non-visual controller has a cleanup tied to the loader, which enables the pointer and destroys its instance when the loader is removed. No code is injected into lginput and no fictitious cursor endpoints are used. The global scope of the API means different pointer devices must be tested separately.
+
+## Assets and caching
+
+JS, QML and the loader are named by SHA-256, chaining references before the next hash is computed. Rewriting a file under the same URL can make the Qt engine reuse an earlier compilation. Do not restart the shared compositor just to clear that cache. The Rust packers produce byte-identical assets to the earlier Python packers.
+
+## Memory design
+
+- One process per command; nothing stays resident except the bounded trial watcher.
+- Static musl binary (~0.6 MB on disk), size-optimised, `panic = "abort"`, no unwinding tables.
+- Streaming SHA-256 through a 16 KiB stack buffer; files are never loaded whole except bounded (≤ 1 MiB) JSON.
+- Child output drained with `poll(2)` from one thread, capped at 1 MiB, with hard deadlines.
+- `mount(2)`/`umount2(2)` system calls instead of spawning `mount` for each of the eight files.
+- A purpose-built JSON parser with a depth limit and duplicate-key rejection, instead of a general-purpose framework.

@@ -1,56 +1,60 @@
 # AGENTS.md
 
-## Alcance
+## Scope
 
-Conservar el MISMO Home nativo `com.webos.app.home`. No crear otro launcher, dashboard, app, servicio residente ni compositor. Dispositivo de referencia: LG 50UQ8050PSB, webOS7.6.0/webOS22, firmware04.60.90. No afirmar compatibilidad universal.
+Keep the SAME native Home, `com.webos.app.home`. Do not create another launcher, dashboard, app, resident service or compositor. Reference device: LG 50UQ8050PSB, webOS 7.6.0 / webOS 22, firmware 04.60.90. Do not claim universal compatibility.
 
-`home/` contiene deltas reproducibles, no firmware completo. `runtime/` controla montajes; `gate/` protege la presentación temprana; `remote/` implementa el mando y su ownership independiente.
+`home/` holds reproducible deltas, not complete firmware. The Home runtime controls mounts; the gate protects early presentation; the remote subsystem implements the remote control and its independent ownership. All device logic lives in the single static binary built from `crates/lg-native`; host tooling lives in `crates/lg-native-host`. QML/JS stays only where it runs inside the existing compositor (`gate/`, `remote/`).
 
-## Desarrollo y verificación
+## Development and verification
 
-Host: Python3.11+ y Node20+. Runtime de TV: Python3.8 compatible.
+Host: Rust 1.74+ (rustup) and Node 20+. TV runtime: the static `lg-native` binary; no interpreter is required on the TV.
 
 ```sh
-python tools/test.py
-python tools/security_check.py
+cargo xtask test
 ```
 
-Usar RED→GREEN: una prueba que falle antes del cambio, implementación mínima, suite completa afectada después. No rebajar expectativas para ocultar regresiones. Las pruebas ordinarias son offline: no conectar ni modificar una TV sin autorización específica.
+Use RED→GREEN: a test that fails before the change, the minimal implementation, then the complete affected suite. Do not lower expectations to hide regressions. Ordinary tests are offline: do not connect to or modify a TV without specific authorisation.
 
-Separar pruebas sintéticas, análisis estático, QML compilado, eventos inyectados y pruebas físicas. Una API que abre una app no demuestra reproducción. Apagado con mando no equivale a retirada eléctrica ni reinicio por software. No afirmar CI verde si sólo hubo pruebas locales.
+Keep these separate: synthetic tests, static analysis, compiled QML, injected events and physical tests. An API that opens an app does not prove playback. Powering off with the remote is not the same as removing power or a software reboot. Do not claim green CI when only local tests ran.
 
-## Invariantes del Home
+Memory is a design constraint: one short-lived process per command, no threads, async runtimes or daemons, streamed hashing, bounded reads (1 MiB) and bounded child processes. Measure before claiming savings and state where the measurement was taken.
 
-- Ocho targets exactos y hashes conocidos; rechazar firmware desconocido. Originales del dispositivo fuera de Git.
-- Conservar LaunchPoints, objetos `doLaunch`, índices fuente, editor, accesibilidad, foco y navegación nativa.
-- Cuadrícula plana, seis columnas, once apps y «Todas las apps» en posición12. Orden explícito del README, no frecuencia de uso; herramientas Apps/Media/Web al final.
-- ThinQ sólo lateral con objeto nativo; Ajustes último. USB sólo con almacenamiento real, no por existir un puerto físico.
-- Reloj sin tarjeta, color `#ADC4CE`, slots fijos por carácter y segundos arriba. No depender de anchos proporcionales. Actualizar sólo con Home visible/activo, fuera de editor/Recents.
+## Home invariants
 
-## Seguridad y recuperación
+- Eight exact targets and known hashes; reject unknown firmware. Device originals stay out of Git.
+- Preserve LaunchPoints, `doLaunch` objects, source indices, the editor, accessibility, focus and native navigation.
+- Flat grid, six columns, eleven apps and "All apps" in position 12. Explicit order from the README, not usage frequency; Apps/Media/Web tools at the end.
+- ThinQ only in the sidebar with its native object; Settings last. USB only with real storage, not because a physical port exists.
+- Clock without a card, colour `#ADC4CE`, fixed slots per character and seconds raised. Do not depend on proportional widths. Update only while Home is visible/active, outside the editor/Recents.
+- On-screen labels: English by default, applied only after the pinned output hashes are verified; `--labels original` reproduces the physically verified bytes.
 
-No tocar firmware, particiones, cadena root, startup/jumpstart ni ejecutables compartidos. Conservar TV, HDMI, imagen/sonido, CEC/ARC/eARC, AirPlay, HomeKit/ThinQ, red standby, cuentas, emparejamientos, tienda y DRM. No falsear activationflags ni soporte de precarga. La preferencia de referencia es NetflixON/YouTubeOFF; Crunchyroll no estaba soportado por el gestor.
+## Safety and recovery
 
-Validar rutas canónicas, permisos, root ownership, archivo regular, enlaces, hashes e identidad del montaje. Guardar intención y ownership ANTES de efectos, y verificar el destino exacto después de escribir. Éxito de SSH/setConfigs no demuestra que el QML cargó.
+Do not touch firmware, partitions, the root chain, startup/jumpstart or shared executables. Preserve TV, HDMI, picture/sound, CEC/ARC/eARC, AirPlay, HomeKit/ThinQ, standby networking, accounts, pairings, the store and DRM. Do not fake activation flags or preload support. The reference preference is Netflix ON / YouTube OFF; Crunchyroll was not supported by the manager.
 
-Assets JS/QML/loader y copias de montaje inmutables con nombre SHA256: Qt puede reutilizar código antiguo si cambia el contenido manteniendo su URL. El gate sólo toca Home; requiere proof de los ocho overrides Y marca de la ventana concreta, nunca sólo archivos correctos.
+Validate canonical paths, permissions, root ownership, regular files, links, hashes and mount identity. Record intent and ownership BEFORE side effects, and verify the exact destination after writing. A successful SSH command or `setConfigs` does not prove that the QML loaded.
 
-Preservar filtros ajenos, orden y seguridad/accesibilidad. Leer la cadena VIVA y quitar sólo diccionarios exactos registrados como propios; nunca restaurar una lista completa antigua. Serializar escritores: configd no ofrece compare-and-swap.
+Immutable JS/QML/loader assets and mount copies named by SHA-256: Qt may reuse old code if content changes while the URL stays the same. The gate touches only Home; it requires proof of the eight overrides AND the marker of the specific window, never just correct files.
 
-Un cambio de keyFilters destruye loaders, cancela genericTimer y suscripciones. genericTimer NO es un watchdog independiente. Toda prueba requiere recuperación que sobreviva al fallo que se prueba. No añadir VNC, inyectores, polling perpetuo ni servidores diagnósticos residentes.
+Preserve foreign filters, their order, and safety/accessibility. Read the LIVE chain and remove only exact entries recorded as owned; never restore an old complete list. Serialise writers: configd offers no compare-and-swap.
 
-## Mando
+A keyFilters change destroys loaders and cancels genericTimer and subscriptions. genericTimer is NOT an independent watchdog. Every test needs a recovery that survives the failure being tested. Do not add VNC, injectors, perpetual polling or resident diagnostic servers.
 
-GoogleVoice Qt18874398 y USP/MOVIES Qt18874413 se confirmaron físicamente con deviceId3 en el mando de referencia. No son códigos evdev; capturar otros mandos antes de cambiar su perfil. Consumir press/release; ignorar autorepetición para la acción; descartar releases huérfanos/expirados; mantener los demás botones.
+Only the installed, root-owned binary at `/var/lib/lg-native/lg-native` acts on the device; hooks and the trial guard execute exactly that file. `unsafe` Rust is limited to individually allowed, documented libc calls.
 
-`desiredEnabled` es distinto del flag aplicado. OFF al iniciar/reanudar; ON manual sin caducidad. Mantener elección durante salvapantallas. Usar blockPointer/cancelBlockPointer nativos, no endpoints Luna inventados. Ante reset nativo tardío, observar cursorVisibleChanged y reaplicar OFF sólo cuando el cursor se hace visible, la política deseada es OFF y powerState=active. Respetar activación manual y logo de apagado.
+## Remote control
 
-MOVIES usa checkLaunch con el ID instalado, sin parámetros que fuercen relanzamiento. El temporizador de ocho segundos fue sólo una prueba histórica, NO el comportamiento permanente.
+GoogleVoice Qt 18874398 and USP/MOVIES Qt 18874413 were confirmed physically with deviceId 3 on the reference remote. They are not evdev codes; capture other remotes before changing this profile. Consume press/release; ignore auto-repeat for the action; discard orphaned/expired releases; keep every other button.
 
-## Publicación
+`desiredEnabled` is distinct from the applied flag. OFF at start/resume; manual ON without expiry. Keep the choice during the screensaver. Use the native blockPointer/cancelBlockPointer, not invented Luna endpoints. On a late native reset, observe cursorVisibleChanged and reapply OFF only when the cursor becomes visible, the desired policy is OFF and powerState=active. Respect manual activation and the power-off logo.
 
-Excluir claves SSH, tokens, `.env`, contraseñas, nonces operacionales, cuentas, direcciones privadas/MAC/SSID, rutas personales, estados vivos, inventarios completos, ROMs/BIOS, IPK/SO, dumps y respaldos ZIP/TAR. No añadir el directorio privado de backups. Fixtures pequeños, sintéticos y etiquetados; no presentar datos inventados como resultados físicos.
+MOVIES uses checkLaunch with the installed ID, without parameters that force a relaunch. The eight-second timer was only a historical test, NOT the permanent behaviour.
 
-Los productos generados y los originales permanecen ignorados. No publicar firmware LG completo. La captura documenta el resultado; no concede derechos sobre el fondo ni marcas de terceros. No asignar licencias a archivos sin verificar procedencia y elección del titular.
+## Publication
 
-Antes de publicar: pruebas, revisión del diff, análisis de privacidad/secretos y revisión independiente. Repo personal del titular, no organización; no cambiar visibilidad ni propiedad sin autorización. README/documentación deben distinguir automatización disponible, pasos manuales y límites reales.
+Exclude SSH keys, tokens, `.env`, passwords, operational nonces, accounts, private addresses/MAC/SSID, personal paths, live state, full inventories, ROMs/BIOS, IPK/SO, dumps and ZIP/TAR backups. Do not add the private backup directory. Fixtures are small, synthetic and labelled; never present invented data as physical results.
+
+Generated products and originals stay ignored. Do not publish complete LG firmware. The screenshot documents the result; it grants no rights to the background or third-party trademarks. Do not assign licences to files without verifying provenance and the owner's choice.
+
+Before publishing: tests, diff review, privacy/secret analysis and independent review. This is the owner's personal repository, not an organisation's; do not change visibility or ownership without authorisation. README and documentation must distinguish available automation, manual steps and real limits.

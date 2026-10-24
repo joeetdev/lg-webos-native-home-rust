@@ -1,4 +1,4 @@
-# Privados y salidas generadas
+# Private data and generated outputs
 .env
 .env.*
 !.env.example
@@ -9,9 +9,6 @@ originals/
 backups/
 **/before/
 **/final-backup/
-**/__pycache__/
-*.pyc
-*.pyo
 *.pem
 *.key
 *.zip
@@ -31,3 +28,6 @@ generated/
 **/*-state.json
 **/home-mounts.json
 !gate/fixtures/home-mounts.json
+
+# Rust build output
+/target/
