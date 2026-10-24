@@ -5,9 +5,12 @@ use regex::Regex;
 use std::path::Path;
 use std::process::Command;
 
+/// Number of content patterns; a scan refuses to run with fewer.
+pub const PATTERN_COUNT: usize = 7;
+
 /// Content patterns that must never be published.
 pub fn patterns() -> Vec<(&'static str, Regex)> {
-    let table: [(&str, &str); 7] = [
+    let table: [(&str, &str); PATTERN_COUNT] = [
         (
             "private-key",
             r"-----BEGIN (?:OPENSSH|RSA|EC|DSA|PGP|ENCRYPTED)? ?PRIVATE KEY",
@@ -90,6 +93,11 @@ pub fn scan(root: &Path) -> std::io::Result<(usize, Vec<(String, &'static str)>)
     names.sort();
     names.dedup();
     let patterns = patterns();
+    if patterns.len() != PATTERN_COUNT {
+        return Err(std::io::Error::other(
+            "a publication pattern failed to compile",
+        ));
+    }
     let mut findings = Vec::new();
     for name in &names {
         findings.extend(

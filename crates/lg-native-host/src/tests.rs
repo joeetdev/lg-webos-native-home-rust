@@ -492,3 +492,26 @@ fn remote_bundles_have_immutable_dependencies_and_final_has_no_trace() {
 fn universal_newlines_match_python_text_mode() {
     assert_eq!(pack::universal_newlines("a\r\nb\rc\n"), "a\nb\nc\n");
 }
+
+#[test]
+fn overflowing_edit_offsets_are_rejected_not_wrapped() {
+    for text in [
+        r#"[{"start":9223372036854775807,"delete":9223372036854775807,"lines":[]}]"#,
+        r#"[{"start":1,"delete":9223372036854775807,"lines":[]}]"#,
+        r#"[{"start":0,"delete":18446744073709551615,"lines":[]}]"#,
+    ] {
+        let result = apply_delta(b"a\nb\n", &edits(text));
+        assert!(
+            matches!(result, Err(build_home::BuildError::Invalid(_))),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn every_publication_pattern_compiles() {
+    assert_eq!(
+        crate::security::patterns().len(),
+        crate::security::PATTERN_COUNT
+    );
+}

@@ -22,7 +22,7 @@ Everything in this section was observed with the earlier Python implementation o
 
 The Rust implementation has **not been executed on the TV**. What was verified on the development host:
 
-- All behaviour previously covered by the Python unit tests is covered by Rust tests (119 tests: unit, integration and command-line), plus root-only tests against real files for symlinks, hard links, permission bits, duplicate JSON keys and oversize input.
+- All behaviour previously covered by the Python unit tests is covered by Rust tests (122 tests: unit, integration and command-line), plus root-only tests against real files for symlinks, hard links, permission bits, duplicate JSON keys and oversize input.
 - Transaction parity: the original Python controller and the Rust controller were run against the same fake device boundary; the journals and the full sequences of side effects were identical for apply, rollback, an injected failure at bind with full recovery, and migration of a legacy journal.
 - The backing-copy names (`sha256` of the compact JSON identity) are identical to the Python ones, so existing copies are reused.
 - The gate and remote packers produce byte-identical assets and `package.json` files to the Python packers, for both trial and final modes.
@@ -34,11 +34,12 @@ The Rust implementation has **not been executed on the TV**. What was verified o
 Deliberate behavioural differences from the Python helpers, all in the fail-closed direction:
 
 - JSON with duplicate keys is rejected everywhere (previously only in some readers); non-finite numbers are rejected.
-- Backing copies are written to a temporary file and linked into place only after their hash matches.
+- Backing copies are written to a temporary file and renamed into place only after their hash matches.
 - The read-only remount preserves the existing per-mount flags explicitly instead of depending on the behaviour of the TV's `mount` binary.
 - The checkpoint helper runs in-process (no separate script to hash-pin), after the same trusted checks on `checkpoint-backup.json`.
-- A pending SIGTERM can never skip the restore of the original preload policy.
-- Device commands only run as the installed, root-owned binary at `/var/lib/lg-native/lg-native`.
+- SIGTERM and SIGINT (Ctrl-C) both unwind the transaction through its recovery. Once recovery or the restore of the original preload policy has started, further signals are deferred until it completes, so a signal can never skip either.
+- Commands that change Home, install the gate or manage the remote only run as the installed, root-owned binary at `/var/lib/lg-native/lg-native`. The gate-release paths (`gate disable`, `gate recover-if-unready`, the trial watcher and the release before `home rollback`) need only root, so this check can never keep Home hidden; a binary that fails it cannot prove readiness, which releases the gate.
+- The trial guard must still be running 300 ms after it starts, or the installation stops before the gate is inserted; descriptors inherited by the watcher are closed at exec.
 - The gate installer recognises the trial hook written by either implementation as owned, so an uncommitted Python trial can be committed or replaced.
 
 ## Offline public tests

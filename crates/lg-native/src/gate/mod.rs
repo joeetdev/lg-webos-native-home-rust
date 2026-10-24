@@ -353,7 +353,7 @@ pub enum Command {
 }
 
 /// `lg-native gate disable|recover-if-unready`, printing one JSON object.
-/// `load` performs the root/binary preflight and loads the state; any
+/// `load` performs the root check and loads the state; any
 /// failure there is reported before a single LS2 call is made.
 pub fn run(
     command: Command,
@@ -540,7 +540,9 @@ mod unix {
 
     /// The default readiness checker: the device Home runtime, read-only.
     #[cfg(target_os = "linux")]
+    /// An untrusted binary cannot prove readiness, so the gate is released.
     pub fn device_ready() -> Result<bool> {
+        crate::device::preflight()?;
         let ops = crate::home::linux::LinuxOps::new()?;
         native_ready(&ops)
     }

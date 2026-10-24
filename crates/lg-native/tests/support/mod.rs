@@ -92,6 +92,11 @@ pub struct FakeOps {
     pub fail: Option<String>,
     pub fail_journal_action: Option<String>,
     pub boot_id: String,
+    // Signal simulation: LS2-like calls check for termination like the real
+    // interruptible luna-send calls, and a signal can be raised at an action.
+    pub luna_checks_signals: bool,
+    pub raise_on: Option<String>,
+    pub raise_signal: i32,
     // Runtime (command-flow) state.
     pub claim: bool,
     pub not_ready: bool,
@@ -135,6 +140,9 @@ impl FakeOps {
             fail: fail.map(str::to_owned),
             fail_journal_action: None,
             boot_id: "boot-a".into(),
+            luna_checks_signals: false,
+            raise_on: None,
+            raise_signal: 0,
             claim: true,
             not_ready: false,
             budgets: Vec::new(),
@@ -147,8 +155,30 @@ impl FakeOps {
         self.events.borrow_mut().push((action.to_owned(), value));
     }
 
+    /// Raises the configured signal (synchronously handled) at `action`.
+    pub fn maybe_raise(&mut self, action: &str) {
+        if self.raise_on.as_deref() == Some(action) {
+            self.raise_on = None;
+            #[cfg(unix)]
+            #[allow(unsafe_code)]
+            // SAFETY: raise() with a valid signal number; the installed handler
+            // only stores an atomic flag.
+            unsafe {
+                libc::raise(self.raise_signal);
+            }
+        }
+    }
+
+    fn luna(&mut self) -> Result<()> {
+        if self.luna_checks_signals {
+            lg_native::signals::check()?;
+        }
+        Ok(())
+    }
+
     fn hit(&mut self, action: &str, value: Value) -> Result<()> {
         self.event(action, value);
+        self.maybe_raise(action);
         if self.fail.as_deref() == Some(action) {
             self.fail = None;
             return Err(Error::Data(format!("injected {action}")));
@@ -247,6 +277,9 @@ impl HomeOps for FakeOps {
         }
         self.journal = Some(journal.clone());
         self.saved.push(journal.clone());
+        if let Some(name) = action.as_str() {
+            self.maybe_raise(&format!("journal:{name}"));
+        }
         self.event("journal", action);
         Ok(())
     }
@@ -256,18 +289,21 @@ impl HomeOps for FakeOps {
         Ok(())
     }
     fn foreground(&mut self) -> Result<Option<String>> {
+        self.luna()?;
         if self.fg_fails {
             return Err(Error::Data("foreground API unavailable".into()));
         }
         Ok(self.fg.clone())
     }
     fn preload(&mut self) -> Result<bool> {
+        self.luna()?;
         if self.preload_fails {
             return Err(Error::Data("policy unavailable".into()));
         }
         Ok(self.enabled)
     }
     fn set_preload(&mut self, enabled: bool) -> Result<()> {
+        self.luna()?;
         if enabled && self.restore_true_fails {
             return Err(Error::Data("restore API unavailable".into()));
         }
@@ -336,6 +372,7 @@ impl HomeOps for FakeOps {
         self.hit("kill", Value::Null)
     }
     fn launch(&mut self, payload: &Value) -> Result<()> {
+        self.luna()?;
         self.hit("launch", payload.clone())
     }
 }

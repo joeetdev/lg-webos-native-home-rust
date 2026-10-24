@@ -116,9 +116,11 @@ fn home(words: &[&str], out: &mut impl Write) -> i32 {
     };
     let mut err = std::io::stderr();
     match action {
+        // Releasing the gate is a safety step: like every gate-release path
+        // it needs only root, never the installed-binary preflight.
         Action::Rollback { background } => home::rollback_releasing_gate::<LinuxOps, _>(
             || {
-                lg_native::device::preflight()
+                lg_native::gate::require_root()
                     .and_then(|()| lg_native::gate::release_for_rollback())
                     .map(drop)
             },
@@ -140,8 +142,12 @@ fn home(_words: &[&str], _out: &mut impl Write) -> i32 {
 #[cfg(unix)]
 fn gate(words: &[&str], out: &mut impl Write) -> i32 {
     use lg_native::gate::{self, guard, install, Command};
+    // Gate-release paths (disable, recover-if-unready, the trial watcher) are
+    // the safety net that keeps Home visible: they need only root. A failed
+    // installed-binary preflight makes the readiness proof fail instead, which
+    // releases the gate rather than leaving Home hidden.
     let load = || {
-        lg_native::device::preflight()?;
+        gate::require_root()?;
         gate::load_state()
     };
     let json_error = |out: &mut dyn Write, error: lg_native::Error| {
@@ -175,7 +181,7 @@ fn gate(words: &[&str], out: &mut impl Write) -> i32 {
         ["commit"] => lg_native::device::preflight().and_then(|()| install::commit(out)),
         ["guard", "--spawn"] => lg_native::device::preflight().and_then(|()| guard::spawn(out)),
         ["guard", "--watch", token] => {
-            lg_native::device::preflight().and_then(|()| guard::run_watch(token, out))
+            gate::require_root().and_then(|()| guard::run_watch(token, out))
         }
         _ => return usage_error(),
     };

@@ -41,7 +41,7 @@ Preserve foreign filters, their order, and safety/accessibility. Read the LIVE c
 
 A keyFilters change destroys loaders and cancels genericTimer and subscriptions. genericTimer is NOT an independent watchdog. Every test needs a recovery that survives the failure being tested. Do not add VNC, injectors, perpetual polling or resident diagnostic servers.
 
-Only the installed, root-owned binary at `/var/lib/lg-native/lg-native` acts on the device; hooks and the trial guard execute exactly that file. `unsafe` Rust is limited to individually allowed, documented libc calls.
+Only the installed, root-owned binary at `/var/lib/lg-native/lg-native` changes Home, installs the gate or manages the remote; hooks and the trial guard execute exactly that file. Gate-release paths need only root: the safety net must never be blocked by a trust check. Recovery and the preload restore defer termination signals. `unsafe` Rust is limited to individually allowed, documented libc calls.
 
 ## Remote control
 

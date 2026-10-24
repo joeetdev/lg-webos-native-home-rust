@@ -84,7 +84,7 @@ mod unix {
     use crate::paths::BINARY;
     use std::io::Write;
     use std::os::unix::process::CommandExt;
-    use std::process::{Command, Stdio};
+    use std::process::{Child, Command, Stdio};
     use std::time::Instant;
 
     const TOKEN_FILE: FileRule = FileRule {
@@ -115,22 +115,13 @@ mod unix {
         parse_token(&value).map(Some)
     }
 
-    /// True while `pid` exists.
-    #[allow(unsafe_code)]
-    pub fn is_alive(pid: u32) -> bool {
-        let Ok(pid) = i32::try_from(pid) else {
-            return false;
-        };
-        // SAFETY: signal 0 only checks existence and permission.
-        unsafe { libc::kill(pid, 0) == 0 }
-    }
-
     /// Starts `lg-native gate guard --watch <token>` in a new session with
     /// `/dev/null` stdio, detached from the caller.
     #[allow(unsafe_code)]
-    pub fn spawn_watcher(token: &str) -> Result<u32> {
+    pub fn spawn_watcher(token: &str) -> Result<Child> {
         ensure!(is_token(token), "Invalid trial token");
         crate::device::preflight()?;
+        let limit = descriptor_limit();
         let mut command = Command::new(BINARY);
         command
             .args(["gate", "guard", "--watch", token])
@@ -138,26 +129,51 @@ mod unix {
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
-        // SAFETY: setsid is async-signal-safe and touches no Rust state.
+        // SAFETY: only async-signal-safe calls (setsid, fcntl) run between fork
+        // and exec; no allocation and no Rust state is touched. Marking every
+        // inherited descriptor close-on-exec keeps the long-lived watcher from
+        // holding the caller's files or sockets open.
         unsafe {
-            command.pre_exec(|| {
+            command.pre_exec(move || {
                 if libc::setsid() < 0 {
                     return Err(std::io::Error::last_os_error());
+                }
+                for fd in 3..limit {
+                    libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC);
                 }
                 Ok(())
             });
         }
-        let child = command
+        command
             .spawn()
-            .map_err(|e| Error::io("spawn trial guard", e))?;
-        Ok(child.id())
+            .map_err(|e| Error::io("spawn trial guard", e))
+    }
+
+    /// Highest descriptor number to sweep before exec (bounded).
+    #[allow(unsafe_code)]
+    fn descriptor_limit() -> libc::c_int {
+        // SAFETY: sysconf has no preconditions.
+        let max = unsafe { libc::sysconf(libc::_SC_OPEN_MAX) };
+        max.clamp(3, 65_536) as libc::c_int
+    }
+
+    /// Starts the watcher and confirms it is still running after a short
+    /// grace period (it is reaped here if it already exited, so a dead watcher
+    /// can never pass as armed).
+    pub fn arm_watcher(token: &str) -> Result<()> {
+        let mut child = spawn_watcher(token)?;
+        std::thread::sleep(Duration::from_millis(300));
+        match child.try_wait() {
+            Ok(None) => Ok(()),
+            _ => Err(Error::Policy("Trial guard not armed".into())),
+        }
     }
 
     /// `lg-native gate guard --spawn`: arm a watcher if a trial is pending.
     pub fn spawn(out: &mut impl Write) -> Result<()> {
         let token = read_token()?;
         let pid = match &token {
-            Some(token) => Some(spawn_watcher(token)?),
+            Some(token) => Some(spawn_watcher(token)?.id()),
             None => None,
         };
         let report =

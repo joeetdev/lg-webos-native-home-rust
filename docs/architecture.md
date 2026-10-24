@@ -31,7 +31,7 @@ Everything that runs on the TV outside the compositor is the single static binar
 | `remote install`, `remote check`, `remote disable` | `remote_controls.py` | manually |
 | `checkpoint --dry-run` / `--apply` | `clear-home-checkpoint.py` | manually; `home apply` runs the same logic in-process |
 
-Each command exits as soon as it is done. There is no daemon, no thread pool and no async runtime. The binary refuses to act unless it runs as root on Linux AND is the root-owned, single-link file at the fixed private path, so hooks and the trial guard always execute exactly the trusted file.
+Each command exits as soon as it is done. There is no daemon, no thread pool and no async runtime. Commands that change Home, install the gate or manage the remote refuse to act unless the binary runs as root on Linux AND is the root-owned, single-link file at the fixed private path, so hooks and the trial guard always execute exactly the trusted file. The gate-release paths are the exception: they are the safety net that keeps Home visible, so they need only root, and an untrusted binary simply cannot prove readiness, which releases the gate.
 
 ## Authority boundaries
 
@@ -43,7 +43,7 @@ Runtime, gate and remote state belong to the device and are NOT part of the repo
 
 ## Transactions
 
-`home apply` journals every intent durably BEFORE the side effect it describes (copy, bind, read-only remount, unmount, checkpoint clearing, kill, launch, preload change). All payload and stock hashes are verified before the first mount. Any failure — including SIGTERM, which unwinds at the next checkpoint and kills a pending `luna-send` — disables the overrides, removes owned mounts and relaunches stock Home in the background, and the original preload policy of the current boot is always restored. Backing copies are content addressed and written under a temporary name, then linked into place only when their hash matches, so a failed copy never leaves a corrupt file at the content-addressed path.
+`home apply` journals every intent durably BEFORE the side effect it describes (copy, bind, read-only remount, unmount, checkpoint clearing, kill, launch, preload change). All payload and stock hashes are verified before the first mount. Any failure — including SIGTERM or SIGINT, which unwind at the next checkpoint and kill a pending `luna-send` — disables the overrides, removes owned mounts and relaunches stock Home in the background, and the original preload policy of the current boot is restored. While recovery or the preload restore runs, further signals are deferred, so neither can be cut short. Backing copies are content addressed and written under a temporary name, then renamed into place only when their hash matches, so a failed copy never leaves a corrupt file at the content-addressed path.
 
 The read-only remount keeps the existing per-mount flags (`nosuid`, `nodev`, `noexec`, access-time policy) and adds only `ro`; mount ownership is then re-proved from `/proc/self/mountinfo`, inode identity and hashes.
 

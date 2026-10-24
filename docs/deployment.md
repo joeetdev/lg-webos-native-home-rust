@@ -2,7 +2,7 @@
 
 This document describes the order and the contracts, not a universal installer and not an instruction to run every step. The root commands can leave Home invisible or cause it to be relaunched. Keep independent SSH access, the originals and external backups BEFORE changing the TV. Nothing on any device is modified by cloning or testing this repository.
 
-All device commands below are the single binary `/var/lib/lg-native/lg-native`. It refuses to run unless it is executed as root on Linux from exactly that path, as a root-owned, single-link file that group/other cannot write, inside root-owned directories.
+All device commands below are the single binary `/var/lib/lg-native/lg-native`. Commands that change Home, install the gate or manage the remote refuse to run unless it is executed as root on Linux from exactly that path, as a root-owned, single-link file that group/other cannot write, inside root-owned directories. The gate-release commands (`gate disable`, `gate recover-if-unready`) need only root, so a damaged or moved binary can never keep Home hidden behind the gate.
 
 ## 1. Prerequisites
 

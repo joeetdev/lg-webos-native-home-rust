@@ -342,9 +342,7 @@ mod unix {
                 json::to_string(&record, Style::Spaced, false).as_bytes(),
                 0o600,
             )?;
-            let pid = guard::spawn_watcher(&token)?;
-            ensure!(guard::is_alive(pid), "Trial guard not armed");
-            Ok(())
+            guard::arm_watcher(&token)
         }
 
         fn set_filters(&mut self, chain: &[Value]) -> Result<()> {

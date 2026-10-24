@@ -240,6 +240,7 @@ impl<'a, O: HomeOps> Controller<'a, O> {
         if !saved.pending || saved.boot_id != self.ops.boot_id() {
             return Ok(());
         }
+        let _deferred = signals::defer();
         let journal_error = self.record("preload-restore", None).err();
         self.ops.set_preload(saved.original)?;
         ensure!(
@@ -251,9 +252,14 @@ impl<'a, O: HomeOps> Controller<'a, O> {
         journal_error.map_or(Ok(()), Err)
     }
 
-    /// Unknown must never become the explicitly safe empty foreground.
-    fn foreground_or_unknown(&mut self) -> Option<String> {
-        self.ops.foreground().ok().flatten()
+    /// Unknown must never become the explicitly safe empty foreground. A
+    /// termination request is not "unknown": it propagates.
+    fn foreground_or_unknown(&mut self) -> Result<Option<String>> {
+        match self.ops.foreground() {
+            Ok(app) => Ok(app),
+            Err(Error::Interrupted) => Err(Error::Interrupted),
+            Err(_) => Ok(None),
+        }
     }
 
     fn restart(&mut self, previous: Option<&str>, background: bool) -> Result<()> {
@@ -262,7 +268,7 @@ impl<'a, O: HomeOps> Controller<'a, O> {
         self.intent("kill-exact-home", None)?;
         self.ops.kill_home()?;
         // Recheck: the user may have switched to HDMI or casting meanwhile.
-        let current = self.foreground_or_unknown();
+        let current = self.foreground_or_unknown()?;
         let needs_preload = |app: Option<&str>| launch_payload(app, false).get("preload").is_some();
         let force_background =
             background || needs_preload(previous) || needs_preload(current.as_deref());
@@ -283,7 +289,7 @@ impl<'a, O: HomeOps> Controller<'a, O> {
             return Ok(Outcome::Disabled);
         }
         self.load()?;
-        let previous = self.foreground_or_unknown();
+        let previous = self.foreground_or_unknown()?;
         let result = match self.apply_body(staging, previous.as_deref()) {
             Ok(()) => Ok(Outcome::Applied),
             Err(original) => match self.recover(previous.as_deref()) {
@@ -297,7 +303,10 @@ impl<'a, O: HomeOps> Controller<'a, O> {
         result
     }
 
+    /// Restores stock Home after a failed apply. Termination requests are
+    /// deferred until it finishes: interrupting recovery helps no one.
     fn recover(&mut self, previous: Option<&str>) -> Result<()> {
+        let _deferred = signals::defer();
         self.disable()?;
         self.remove_owned()?;
         self.assert_no_overrides()?;
@@ -404,7 +413,7 @@ impl<'a, O: HomeOps> Controller<'a, O> {
             return Err(error);
         }
         self.disable()?;
-        let previous = self.foreground_or_unknown();
+        let previous = self.foreground_or_unknown()?;
         let result = self.rollback_body(previous.as_deref(), background);
         self.restore_preload()?;
         result.map(|()| Outcome::RolledBack)

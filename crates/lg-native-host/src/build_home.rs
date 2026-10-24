@@ -264,11 +264,12 @@ pub fn apply_delta(source: &[u8], edits: &Value) -> Result<Vec<u8>> {
         else {
             return Err(invalid("invalid, overlapping or out-of-range edit"));
         };
+        let end = start.checked_add(count);
         let in_range = count >= 0
             && start >= cursor as i64
             && previous.map_or(true, |p| start > p as i64)
             && start <= lines.len() as i64
-            && start + count <= lines.len() as i64;
+            && end.is_some_and(|end| end <= lines.len() as i64);
         if !in_range {
             return Err(invalid("invalid, overlapping or out-of-range edit"));
         }

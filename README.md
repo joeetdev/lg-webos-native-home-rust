@@ -112,7 +112,7 @@ The design keeps it that way: one process per command, no threads or async runti
 
 ## Verification of the Rust port
 
-- Every behaviour covered by the Python tests is covered by Rust tests (119 in total). Tests of Python-only mechanics (dynamic module loading, `mount` command vectors) were replaced by tests of their Rust equivalents, and real-filesystem tests were added for symlinks, hard links, modes and oversize input.
+- Every behaviour covered by the Python tests is covered by Rust tests (122 in total). Tests of Python-only mechanics (dynamic module loading, `mount` command vectors) were replaced by tests of their Rust equivalents, and real-filesystem tests were added for symlinks, hard links, modes and oversize input.
 - Transaction parity: the Rust controller and the Python controller produced identical journals and identical side-effect sequences for apply, rollback, an injected mid-transaction failure with recovery, and a legacy-journal migration.
 - Packaging parity: the Rust packers produce byte-identical gate and remote assets and packages, so existing installations keep their exact content-addressed names.
 - The Home delta engine matched the Python one on 3,000 randomised differential cases (outputs and error messages).

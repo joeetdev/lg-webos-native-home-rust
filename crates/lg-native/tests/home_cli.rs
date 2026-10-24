@@ -186,20 +186,33 @@ fn binary_help_is_safe_on_any_host_and_device_commands_refuse_off_device() {
         .output()
         .unwrap();
     assert_eq!(bad.status.code(), Some(2));
-    // Off the TV (or not as the installed binary) every device command refuses
-    // before touching anything.
+    // Not the installed binary: Home commands refuse before touching anything.
     let refused = std::process::Command::new(exe)
         .args(["home", "apply", "--boot"])
         .output()
         .unwrap();
     assert_eq!(refused.status.code(), Some(1));
-    let gate = std::process::Command::new(exe)
-        .args(["gate", "disable"])
-        .output()
-        .unwrap();
-    assert_eq!(gate.status.code(), Some(1));
-    let report = lg_native::json::parse_bytes(&gate.stdout).unwrap();
-    assert!(report.get("error").and_then(Value::as_str).is_some());
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("installed binary")
+            || String::from_utf8_lossy(&refused.stderr).contains("Requires root")
+    );
+    // Gate release is the safety net and needs only root. Never run it where
+    // a real gate state could exist.
+    let root = lg_native::fsx::euid() == 0;
+    if !root || !std::path::Path::new("/var/lib/lg-native").exists() {
+        let gate = std::process::Command::new(exe)
+            .args(["gate", "disable"])
+            .output()
+            .unwrap();
+        let report = lg_native::json::parse_bytes(&gate.stdout).unwrap();
+        if root {
+            assert_eq!(gate.status.code(), Some(0));
+            assert_eq!(report.get("state"), Some(&Value::from("absent")));
+        } else {
+            assert_eq!(gate.status.code(), Some(1));
+            assert!(report.get("error").and_then(Value::as_str).is_some());
+        }
+    }
     let remote = std::process::Command::new(exe)
         .args(["remote", "check"])
         .output()

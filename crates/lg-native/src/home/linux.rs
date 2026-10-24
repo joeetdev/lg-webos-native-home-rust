@@ -422,9 +422,11 @@ impl HomeOps for LinuxOps {
             fsx::fsync_dir(ROOT)?;
         }
         secure_parents(&copy)?;
-        // Build the copy under a temporary name and only link it into place
+        // Build the copy under a temporary name and only rename it into place
         // when its hash matches, so a failed copy never leaves a corrupt
-        // file at the content-addressed path.
+        // file at the content-addressed path. (The transaction lock and the
+        // absence check above make the rename exclusive; unlike a hard link it
+        // never leaves a second link behind after a crash.)
         let temporary = format!(
             "{COPIES_DIR}/.{}.tmp-{}",
             paths::file_name(&copy),
@@ -465,8 +467,7 @@ impl HomeOps for LinuxOps {
                 .sync_all()
                 .map_err(|e| Error::io(format!("fsync {temporary}"), e))?;
             drop(output);
-            std::fs::hard_link(&temporary, &copy)
-                .map_err(|e| Error::io(format!("link {copy}"), e))?;
+            fsx::rename(&temporary, &copy)?;
             Ok(())
         })();
         if fsx::lexists(&temporary) {
